@@ -1,65 +1,132 @@
 package com.example.simplebrowser;
 
 import android.app.Activity;
-import android.app.ActionBar;
-import android.app.Fragment;
+import android.content.Context;
+import android.graphics.Bitmap;
 import android.os.Bundle;
-import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.view.KeyEvent;
 import android.view.View;
-import android.view.ViewGroup;
-import android.os.Build;
+import android.view.View.OnKeyListener;
+import android.view.inputmethod.InputMethodManager;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.EditText;
+import android.widget.ProgressBar;
 
 public class MainActivity extends Activity {
 
+    private static final String DEFAULT_URL = "http://www.google.com";
+
+	private WebView mWebView;
+	private EditText mAddressBar;
+	private ProgressBar mProgressBar;
+	
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        if (savedInstanceState == null) {
-            getFragmentManager().beginTransaction()
-                    .add(R.id.container, new PlaceholderFragment())
-                    .commit();
-        }
-    }
-
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
         
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.main, menu);
-        return true;
+        this.requestWindowFeature(getWindow().FEATURE_NO_TITLE);
+        
+        setContentView(R.layout.activity_main);
+        
+        wireComponents();
+        initializeWebView();
+        initializeAddressBar();
     }
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-        if (id == R.id.action_settings) {
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
+	private void wireComponents() {
+        mWebView = (WebView) findViewById(R.id.webview);
+        mAddressBar = (EditText) findViewById(R.id.addressbar);
+        mProgressBar = (ProgressBar) findViewById(R.id.progressbar);
+	}
+
+	private void initializeWebView() {
+		// Force links and redirects to open in the WebView instead of in a
+		// browser
+		mWebView.setWebViewClient(new MyWebViewClient());
+		mWebView.setWebChromeClient(new MyWebChromeClient());
+
+		// Enable JavaScript
+        WebSettings webSettings = mWebView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+	}
+	
+	private void hideProgressBar() {
+		mProgressBar.setVisibility(View.GONE);
+	}
+
+	private void showProgressBar() {
+		mProgressBar.setVisibility(View.VISIBLE);
+	}
+
+	private class MyWebViewClient extends WebViewClient {
+
+		@Override
+		public void onPageFinished(WebView view, String url) {
+			super.onPageFinished(view, url);
+			MainActivity.this.hideProgressBar();
+		}
+
+		@Override
+		public void onPageStarted(WebView view, String url, Bitmap favicon) {
+			super.onPageStarted(view, url, favicon);
+			MainActivity.this.showProgressBar();
+		}
+
+	};
+	
+	private class MyWebChromeClient extends WebChromeClient {
+		@Override
+		public void onProgressChanged(WebView view, int newProgress) {
+			MainActivity.this.setProgressValue(newProgress);
+			super.onProgressChanged(view, newProgress);
+		}
+	}
+	
+	public void setProgressValue(int progress) {
+        mProgressBar.setProgress(progress);        
     }
 
-    /**
-     * A placeholder fragment containing a simple view.
-     */
-    public static class PlaceholderFragment extends Fragment {
+    private void initializeAddressBar() {
+    	mAddressBar.setOnKeyListener(new OnKeyListener() {
 
-        public PlaceholderFragment() {
-        }
+			@Override
+			public boolean onKey(View v, int keyCode, KeyEvent event) {
+				if ((event.getAction() == KeyEvent.ACTION_DOWN)
+						&& (keyCode == KeyEvent.KEYCODE_ENTER)) {
+					hideKeyboard();
+					loadUrl(getUrlAddress());
+				}
+			return false;
+			}
+    		
+			private void hideKeyboard() {
+				InputMethodManager in = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+				in.hideSoftInputFromWindow(
+						mAddressBar.getApplicationWindowToken(),
+						InputMethodManager.HIDE_NOT_ALWAYS);
+			}
+			
+    	});    	
+    	setUrlAddress(DEFAULT_URL);
+	}
 
-        @Override
-        public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                Bundle savedInstanceState) {
-            View rootView = inflater.inflate(R.layout.fragment_main, container, false);
-            return rootView;
-        }
+    private void setUrlAddress(String url) {
+    	mAddressBar.setText(url);
+		loadUrl(url);    	
+    }
+
+	private void loadUrl(String url) {
+		mProgressBar.setVisibility(View.VISIBLE);
+		mWebView.loadUrl(url);
+		mWebView.requestFocus();
+		mProgressBar.setProgress(0);
+	}
+
+    private String getUrlAddress() {
+    	return mAddressBar.getText().toString();
     }
 
 }
